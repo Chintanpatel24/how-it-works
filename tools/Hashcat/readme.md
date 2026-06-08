@@ -393,3 +393,52 @@ sequenceDiagram
 
     BE-->>HC: All devices ready\nNVIDIA + AMD + Intel + CPU
 ```
+```mermaid
+sequenceDiagram
+    participant HC as Hashcat
+    participant MOD as module_01000.c
+    participant HASH as Hash Storage hashes.c
+    participant POT as Potfile potfile.c
+    participant GPU as GPU
+
+    Note over HC,GPU: MODULE LOAD & HASH PARSE SEQUENCE
+
+    HC->>MOD: Load module for -m 1000 (NTLM)
+    MOD-->>HC: module_kern_type = KERN_TYPE_NTLM
+    MOD-->>HC: module_opti_type = OPTI_TYPE_OPTIMIZED
+    MOD-->>HC: module_salt_type = SALT_TYPE_NONE
+    MOD-->>HC: module_dgst_size = DGST_SIZE_4_4
+    MOD-->>HC: module_pw_max = PW_MAX_31
+    Note right of MOD: Optimized kernel:\nmax 31 char passwords\n2-3x faster than pure
+
+    HC->>MOD: module_hash_decode(hash_line)
+    loop Parse Each Hash From File
+        MOD->>MOD: Validate hash format
+        MOD->>MOD: Extract digest bytes
+        MOD->>HASH: Store in hashes_buf[]
+        HASH->>HASH: Sort for binary search
+    end
+
+    HASH->>POT: Check potfile for each hash
+    loop Potfile Lookup
+        POT->>POT: Search potfile cache
+        alt Already Cracked
+            POT-->>HASH: Skip this hash 
+        else Not Cracked
+            HASH->>HASH: Keep in active list
+        end
+    end
+
+    HASH->>HASH: Build bitmap / bloom filter
+    Note right of HASH: bitmap_s1_a/b/c/d\nbitmap_s2_a/b/c/d\nMulti-stage false\npositive reduction
+
+    HASH->>GPU: Upload digests → d_digests_buf
+    HASH->>GPU: Upload bitmaps → d_bitmap_s1/s2
+    GPU-->>HC: Ready to crack 
+
+    HC->>MOD: module_st_hash() — self test
+    MOD-->>GPU: Known plain → hash pair
+    GPU->>GPU: Hash the known plain
+    GPU-->>HC: Result matches? Y or N
+    Note right of HC: Verifies kernel\nworks correctly\nbefore real attack
+```
