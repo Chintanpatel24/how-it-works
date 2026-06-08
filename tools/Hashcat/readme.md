@@ -293,3 +293,47 @@ sequenceDiagram
         BS-->>HASH: Continue next candidate
     end
 ```
+```mermaid
+sequenceDiagram
+    participant User
+    participant HC as Hashcat Core
+    participant AT as autotune.c
+    participant GPU as GPU
+
+    Note over User,GPU: AUTO-TUNE SEQUENCE
+
+    User->>HC: Launch hashcat -w 2
+    HC->>AT: autotune_init()
+    AT->>GPU: Set KA=1, KL=1 (minimum)
+
+    loop Auto Tune — Find Optimal KA
+        AT->>GPU: Launch test kernel with current KA
+        GPU->>GPU: Execute kernel
+        GPU-->>AT: Execution time = Xms
+        AT->>AT: Time < 16ms target?
+        alt Too Fast — Need More Work
+            AT->>AT: Double KA value
+            Note right of AT: KA: 1→2→4→8→16→32...
+        else Time ≥ Target or Mem Limit
+            AT->>AT: Use previous KA value
+        end
+    end
+
+    loop Auto Tune — Find Optimal KL
+        AT->>GPU: Launch test kernel with current KL
+        GPU->>GPU: Execute kernel
+        GPU-->>AT: Execution time = Xms
+        AT->>AT: Time < 16ms target?
+        alt Too Fast — Need More Work
+            AT->>AT: Double KL value
+            Note right of AT: KL: 1→2→4→8...256
+        else Time ≥ Target or Mem Limit
+            AT->>AT: Use previous KL value
+        end
+    end
+
+    AT-->>HC: Optimal params found\nKA=128 KL=256 KT=64
+    Note right of AT: -w 1 → 8ms target\n-w 2 → 16ms target\n-w 3 → 64ms target\n-w 4 → 256ms target
+
+    HC-->>User: Auto tune complete \nBegin cracking at full speed
+```
