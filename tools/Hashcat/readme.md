@@ -555,3 +555,53 @@ sequenceDiagram
         HC-->>User: Goodbye 
     end
 ```
+```mermaid
+sequenceDiagram
+    participant User
+    participant HC1 as Hashcat Node 1
+    participant HC2 as Hashcat Node 2
+    participant GPU1 as RTX 4090 #1
+    participant GPU2 as RTX 4090 #2
+    participant GPU3 as RTX 4090 #3
+    participant GPU4 as RTX 4090 #4
+    participant POT as Shared Potfile
+
+    Note over User,POT: MULTI GPU CRACKING SESSION
+
+    User->>HC1: hashcat -d 1,2,3,4 -m 1000 hash.txt wl.txt
+
+    HC1->>HC1: Detect 4 GPUs
+    HC1->>HC1: Split keyspace into 4 equal chunks
+    Note right of HC1: Chunk 1: words 0 to 25%\nChunk 2: words 25 to 50%\nChunk 3: words 50 to 75%\nChunk 4: words 75 to 100%
+
+    par GPU 1 — Chunk 1
+        HC1->>GPU1: Upload hashes + chunk 1
+        loop Crack Chunk 1
+            GPU1->>GPU1: Hash + Compare
+            GPU1-->>HC1: Results
+        end
+    and GPU 2 — Chunk 2
+        HC1->>GPU2: Upload hashes + chunk 2
+        loop Crack Chunk 2
+            GPU2->>GPU2: Hash + Compare
+            GPU2-->>HC1: Results
+        end
+    and GPU 3 — Chunk 3
+        HC1->>GPU3: Upload hashes + chunk 3
+        loop Crack Chunk 3
+            GPU3->>GPU3: Hash + Compare
+            GPU3-->>HC1: Results
+        end
+    and GPU 4 — Chunk 4
+        HC1->>GPU4: Upload hashes + chunk 4
+        loop Crack Chunk 4
+            GPU4->>GPU4: Hash + Compare
+            GPU4-->>HC1: Results
+        end
+    end
+
+    Note over GPU1,GPU4: No GPU-to-GPU communication needed\nEach GPU is fully independent
+
+    HC1->>POT: Merge all cracked results
+    POT-->>User: Combined potfile\nTotal speed: 4× 164 GH/s = 656 GH/s
+```
