@@ -442,3 +442,49 @@ sequenceDiagram
     GPU-->>HC: Result matches? Y or N
     Note right of HC: Verifies kernel\nworks correctly\nbefore real attack
 ```
+```mermaid
+sequenceDiagram
+    participant User
+    participant HC as Hashcat
+    participant MASK as Mask Engine
+    participant MARKOV as Markov Chain
+    participant GPU as  GPU
+    participant OUT as Output
+
+    Note over User,OUT: BRUTE FORCE MASK ATTACK -a 3 ?u?l?l?l?d?d
+
+    User->>HC: hashcat -m 1000 -a 3 hash.txt ?u?l?l?l?d?d
+
+    HC->>MASK: Parse mask pattern
+    MASK-->>HC: Charset map\n?u = ABCDEFGHIJKLMNOPQRSTUVWXYZ\n?l = abcdefghijklmnopqrstuvwxyz\n?d = 0123456789
+    HC->>MASK: Calculate total keyspace
+    MASK-->>HC: 26×26×26×26×10×10\n= 45,697,600 candidates
+
+    HC->>MARKOV: Load hashcat.hcstat2
+    Note right of MARKOV: Markov chains rank\ncharacter sequences\nby real-world frequency
+    MARKOV->>MARKOV: Build transition table
+    MARKOV-->>HC: Probability-ordered\ncandidate sequence 
+    Note right of HC: "Pass12" tested before\n"Zzzz99" — smarter order
+
+    loop Keyspace Batch Loop
+        HC->>MASK: Generate next batch
+        MASK->>MARKOV: Order by probability
+        MARKOV-->>GPU: Batch → d_markov_css_buf
+
+        GPU->>GPU: Stage 1 — BASE KERNEL\nGenerate candidates from mask
+
+        GPU->>GPU: Stage 2 — AMPLIFIER amp_a3.cl\nExpand with charset positions
+
+        GPU->>GPU: Stage 3 — HASH + COMPARE\nNTLM hash each candidate
+
+        GPU-->>HC: Results buffer
+
+        alt Match Found
+            HC->>OUT: CRACKED
+            OUT-->>User: Hash → "Pass12"
+        else No Match
+            HC->>HC: Next batch
+            Note right of HC: Progress: X/45,697,600\nSpeed: 164 GH/s\nETA: Xs remaining
+        end
+    end
+```
