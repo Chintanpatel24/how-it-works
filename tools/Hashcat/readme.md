@@ -337,3 +337,59 @@ sequenceDiagram
 
     HC-->>User: Auto tune complete \nBegin cracking at full speed
 ```
+```mermaid
+sequenceDiagram
+    participant HC as Hashcat
+    participant BE as backend.c
+    participant OCL as OpenCL ICD
+    participant NV as NVIDIA GPU
+    participant AMD as AMD GPU
+    participant INTEL as Intel GPU
+    participant CPU as CPU Fallback
+
+    Note over HC,CPU:  BACKEND DEVICE DISCOVERY
+
+    HC->>BE: backend_init()
+    BE->>OCL: clGetPlatformIDs()
+    OCL-->>BE: Platforms found [NVIDIA, AMD, Intel, CPU]
+
+    BE->>NV: clGetDeviceInfo(CL_DEVICE_NAME)
+    NV-->>BE: RTX 4090\n24GB VRAM\n16384 Cores\n2520 MHz
+    BE->>NV: clCreateContext()
+    NV-->>BE: Context 
+
+    BE->>AMD: clGetDeviceInfo(CL_DEVICE_NAME)
+    AMD-->>BE: RX 7900 XTX\n24GB VRAM\n6144 SPs\n2500 MHz
+    BE->>AMD: clCreateContext()
+    AMD-->>BE: Context 
+
+    BE->>INTEL: clGetDeviceInfo(CL_DEVICE_NAME)
+    INTEL-->>BE: Arc A770\n16GB VRAM\n512 EUs
+    BE->>INTEL: clCreateContext()
+    INTEL-->>BE: Context 
+
+    BE->>CPU: clGetDeviceInfo(CL_DEVICE_NAME)
+    CPU-->>BE: Intel i9-13900K\n24 Cores\nFallback Mode
+    BE->>CPU: clCreateContext()
+    CPU-->>BE: Context 
+
+    Note over BE,CPU: KERNEL COMPILATION PER DEVICE
+
+    loop For Each Device
+        BE->>BE: Select kernel source\nm01000_a0-optimized.cl
+        BE->>NV: clBuildProgram(source, -D flags)
+        NV->>NV: JIT Compile kernel
+        NV-->>BE: Binary ready 
+        BE->>BE: Cache to ~/.hashcat/kernels/
+    end
+
+    Note over BE,CPU: MEMORY ALLOCATION PER DEVICE
+
+    BE->>NV: clCreateBuffer(d_pws_buf)
+    BE->>NV: clCreateBuffer(d_digests_buf)
+    BE->>NV: clCreateBuffer(d_result)
+    BE->>NV: clCreateBuffer(d_bitmap)
+    NV-->>BE: Buffers allocated 
+
+    BE-->>HC: All devices ready\nNVIDIA + AMD + Intel + CPU
+```
