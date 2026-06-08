@@ -255,3 +255,66 @@ sequenceDiagram
         ET-->>User: Filter replaced string in HTTP body
     end
 ```
+```mermaid
+sequenceDiagram
+    participant User
+    participant ET as Ettercap
+    participant ARP as ARP Poisoner
+    participant DNS as dns_spoof Plugin
+    participant SSL as SSLstrip Plugin
+    participant V as Victim Host
+    participant GW as Real Gateway
+    participant WEB as Web Server HTTPS
+
+    Note over User,WEB: ETTERCAP ADVANCED ATTACK SSLstrip plus DNS Spoof
+
+    User->>ET: ettercap -T -M arp:remote -P dns_spoof /victim// /gateway//
+    User->>ET: Load SSLstrip plugin
+    User->>ET: Load dns_spoof with etter.dns config
+
+    Note over ARP,GW: STEP 1 Poison ARP Cache
+
+    loop ARP Poison Active
+        ARP->>V: ARP Reply Gateway is at Attacker MAC
+        ARP->>GW: ARP Reply Victim is at Attacker MAC
+    end
+
+    Note over DNS,V: STEP 2 DNS Spoofing
+
+    V->>ET: DNS Query A record for bank.com
+    Note right of V: Victim asks who is bank.com\nRequest goes to Attacker\nbecause ARP poisoned
+
+    ET->>DNS: Intercept DNS query
+    DNS->>DNS: Check etter.dns rules
+    Note right of DNS: etter.dns rule:\nbank.com A 192.168.1.99\npoints to Attacker IP
+
+    DNS->>V: DNS Reply bank.com is at 192.168.1.99
+    Note right of DNS: Victim now believes\nbank.com resolves to\nAttacker machine
+
+    V->>ET: HTTP GET request to 192.168.1.99 for bank.com
+    Note right of V: Victim connects to\nAttacker thinking it\nis the real bank
+
+    Note over SSL,WEB: STEP 3 SSLstrip Downgrade
+
+    ET->>WEB: Forward request to real bank.com over HTTPS
+    WEB-->>ET: HTTPS Response 200 OK with HTML
+
+    SSL->>SSL: Intercept HTTPS response
+    SSL->>SSL: Replace all HTTPS links with HTTP
+    SSL->>SSL: Replace secure cookies with plain
+    SSL->>V: Send downgraded HTTP response to victim
+
+    Note right of SSL: Victim browser sees HTTP\nnot HTTPS so no\ncertificate warning shown
+
+    V->>ET: HTTP POST login form username admin password bank123
+    Note right of V: Victim submits credentials\nover plain HTTP to Attacker
+
+    ET->>ET: Dissector captures POST body
+    ET-->>User: Credential captured bank.com username admin password bank123
+
+    ET->>WEB: Forward credentials to real bank over HTTPS
+    WEB-->>ET: Authenticated session cookie
+    ET->>V: Forward session cookie to victim
+
+    Note right of ET: Victim is logged in normally\nbut Attacker captured\nall credentials silently
+```
