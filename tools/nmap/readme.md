@@ -289,3 +289,64 @@ sequenceDiagram
     OUT->>OUT: Format grepable -oG
     OUT-->>User: Nmap scan report for 192.168.1.100\nHost is up 0.0012s latency\n22/tcp open ssh OpenSSH 8.9\n80/tcp open http Apache 2.4.52\n443/tcp open https\nOS: Linux 5.15
 ```
+```mermaid
+sequenceDiagram
+    participant User
+    participant NSE as NSE Lua Runtime
+    participant API as Nmap Script API
+    participant LIB as Script Libraries
+    participant NET as Network Target
+    participant DB as Vulnerability DB
+
+    Note over User,DB: NSE SCRIPT ENGINE DEEP DIVE
+
+    User->>NSE: --script vuln --script-args unsafe=1
+
+    NSE->>NSE: Scan scripts directory
+    NSE->>NSE: Load all vuln category scripts
+    NSE->>NSE: Check script dependencies
+    NSE->>NSE: Verify portrule hostrule conditions
+    Note right of NSE: portrule = shortport.http\nOnly run on HTTP ports
+
+    loop For Each Matched Script
+        NSE->>LIB: Load stdnse library
+        NSE->>LIB: Load http library
+        NSE->>LIB: Load vulns library
+
+        Note over NSE,NET: SCRIPT http-vuln-cve2017-5638 Struts
+
+        NSE->>API: nmap.new_socket()
+        API-->>NSE: Socket handle
+
+        NSE->>NET: HTTP GET with malformed Content-Type header
+        Note right of NSE: Crafted exploit header\nContent-Type OGNL injection
+
+        NET-->>NSE: HTTP Response code body
+
+        NSE->>NSE: Parse response
+        NSE->>NSE: Check for command execution indicators
+
+        alt Vulnerability Confirmed
+            NSE->>DB: Lookup CVE-2017-5638 details
+            DB-->>NSE: CVSS 10.0 Critical RCE
+            NSE-->>User: VULNERABLE CVE-2017-5638\nStruts RCE confirmed\nCVSS 10.0
+        else Not Vulnerable
+            NSE-->>User: NOT VULNERABLE patched or not Struts
+        end
+
+        Note over NSE,NET: SCRIPT smb-vuln-ms17-010 EternalBlue
+
+        NSE->>NET: SMB Negotiate Protocol Request
+        NET-->>NSE: SMB Negotiate Response
+        NSE->>NET: SMB Session Setup AndX Request
+        NET-->>NSE: Session established
+        NSE->>NET: Trans2 request with specific parameters
+        NET-->>NSE: Response analyzed
+
+        alt MS17-010 Vulnerable
+            NSE-->>User: VULNERABLE MS17-010 EternalBlue\nWindows SMB RCE\nPatch immediately
+        else Patched
+            NSE-->>User: NOT VULNERABLE MS17-010 patched
+        end
+    end
+```
