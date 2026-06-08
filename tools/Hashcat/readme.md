@@ -605,3 +605,72 @@ sequenceDiagram
     HC1->>POT: Merge all cracked results
     POT-->>User: Combined potfile\nTotal speed: 4× 164 GH/s = 656 GH/s
 ```
+```mermaid
+flowchart TD
+    A([USER]) -->|Hash File + Wordlist + Rules| B
+
+    subgraph INIT ["INITIALIZATION"]
+        B[main.c Parse CLI] --> C[Load hctune DB]
+        C --> D[Detect GPU Devices\nOpenCL CUDA HIP]
+        D --> E[Load Hash Module\nmodule_XXXXX.c]
+        E --> F[Parse + Sort Hashes\nBuild Bloom Filter]
+        F --> G[Check Potfile\nSkip Already Cracked]
+        G --> H[Compile Kernels\nCache Binaries]
+        H --> I[Self Test\nVerify Kernel OK]
+        I --> J[Auto Tune\nFind Optimal KA KL]
+    end
+
+    subgraph CRACK ["CRACKING LOOP"]
+        K[Read Wordlist Chunk] --> L[Apply Rules CPU Side]
+        L --> M[Transfer to GPU\nHost to Device]
+
+        subgraph GPU ["GPU — Thousands of Parallel Threads"]
+            N[Stage 1\nBASE KERNEL\nLoad Words] --> O
+            O[Stage 2\nAMPLIFIER KERNEL\nRules + Masks] --> P
+            P[Stage 3\nHASH KERNEL\nCompute NTLM] --> Q
+
+            subgraph COMPARE ["Comparison"]
+                Q --> R{Bloom\nFilter\nStage 1}
+                R -->|Miss | SKIP[Skip Candidate]
+                R -->|Hit| S{Bloom\nFilter\nStage 2}
+                S -->|Miss | SKIP
+                S -->|Hit| T[Binary Search\nO log n]
+                T --> U{Match\nFound?}
+            end
+        end
+
+        U -->|Yes | V[Write Potfile\nWrite Outfile]
+        U -->|No | W[Next Candidate]
+        V --> W
+        W --> X{Keyspace\nDone?}
+        X -->|No| K
+        X -->|Yes| DONE
+    end
+
+    subgraph MON ["MONITOR — Parallel Thread"]
+        Y[Query Temp\nFan Power] --> Z{Temp\n> 90°C?}
+        Z -->|Yes | AA[Throttle GPU\nReduce KA]
+        Z -->|No | AB[Full Speed]
+        AA --> Y
+        AB --> Y
+    end
+
+    J --> K
+    CRACK -.->|Every second| MON
+
+    DONE[Complete] --> CLEANUP
+    subgraph CLEANUP ["CLEANUP"]
+        CL1[Free GPU VRAM] --> CL2[Release Contexts]
+        CL2 --> CL3[Close Files]
+        CL3 --> EXIT([Exit])
+    end
+
+    V --> RESULT([Cracked Passwords])
+
+    style INIT fill:#0d1117,stroke:#4a9eff,color:#fff
+    style CRACK fill:#0d1117,stroke:#ff6b6b,color:#fff
+    style GPU fill:#0f2027,stroke:#ffcc02,color:#fff
+    style COMPARE fill:#162032,stroke:#00ff88,color:#fff
+    style MON fill:#0d1117,stroke:#ff9f43,color:#fff
+    style CLEANUP fill:#0d1117,stroke:#888,color:#fff
+```
