@@ -488,3 +488,70 @@ sequenceDiagram
         end
     end
 ```
+```mermaid
+sequenceDiagram
+    participant HC as Hashcat
+    participant MON as monitor.c
+    participant GPU as GPU
+    participant THR as Thread Manager
+    participant STATUS as status.c
+    participant User
+
+    Note over HC,User: HARDWARE MONITOR + STATUS LOOP
+
+    HC->>THR: Spawn monitor thread
+    HC->>THR: Spawn status thread
+    HC->>THR: Spawn cracking threads
+
+    Note over MON,GPU: Runs in parallel with cracking
+
+    loop Monitor Loop — Every 1 Second
+        MON->>GPU: Query temperature
+        GPU-->>MON: Temp = 78°C
+
+        alt Temp > 90°C CRITICAL
+            MON->>HC: EMERGENCY throttle
+            HC->>GPU: Reduce kernel_accel
+            MON-->>User: Warning: High temp throttling
+        else Temp > 80°C WARNING
+            MON->>HC: Soft throttle
+            HC->>GPU: Slight reduction
+        else Temp OK 
+            MON->>HC: Continue full speed
+        end
+
+        MON->>GPU: Query fan speed RPM
+        MON->>GPU: Query GPU utilization %
+        MON->>GPU: Query power usage W
+        GPU-->>MON: Fan=85% Util=99% Power=450W
+    end
+
+    loop Status Display — Every 10 Seconds
+        STATUS->>HC: Request progress data
+        HC-->>STATUS: candidates_done\nkeyspace_total\ntime_started
+        STATUS->>STATUS: Calculate speed H/s
+        STATUS->>STATUS: Calculate ETA
+        STATUS->>STATUS: Calculate progress %
+
+        STATUS-->>User: Speed: 164.5 GH/s\nProgress: 12.4%\nETA: 00:04:32\nTemp: 78°C\nFan: 85%
+    end
+
+    loop User Interaction
+        User->>HC: Press S — show status
+        HC-->>User: Full status report
+
+        User->>HC: Press P — pause
+        HC->>GPU: Halt kernel launches
+        HC->>HC: Save checkpoint restore.file
+        HC-->>User: Session paused 
+
+        User->>HC: Press R — resume
+        HC->>HC: Load restore.file
+        HC->>GPU: Resume from checkpoint
+        HC-->>User: Session resumed 
+
+        User->>HC: Press Q — quit
+        HC->>HC: hashcat_session_destroy()
+        HC-->>User: Goodbye 
+    end
+```
