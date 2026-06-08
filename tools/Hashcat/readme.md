@@ -1,6 +1,141 @@
 # Hashcat
 
 ```mermaid
+mindmap
+  root((HASHCAT))
+    (INPUT LAYER)
+      [Hash Targets]
+        MD5 SHA1 SHA256 SHA512
+        NTLM / NetNTLMv2
+        bcrypt / scrypt / Argon2
+        WPA2 / WPA3
+        Kerberos TGS-REP
+        Crypto Wallets
+        400+ Hash Types
+      [Candidate Sources]
+        Wordlists rockyou.txt
+        Masks ?u?l?l?d?d
+        Rules best64.rule
+        Combinator two lists
+        Stdin Pipe
+      [Config Options]
+        Attack Mode -a 0 to 9
+        Device Select -d 1,2,3
+        Workload -w 1 to 4
+        Optimized Mode -O
+        Session and Restore
+
+    (CORE ENGINE)
+      [dispatcher.c]
+        Work Distribution
+        Multi GPU Balancing
+        Keyspace Chunking
+        Progress Tracking
+      [autotune.c]
+        kernel_accel
+        kernel_loops
+        kernel_threads
+        Workload Profiles w1 to w4
+      [rp.c Rule Engine]
+        Lowercase Uppercase Toggle
+        Append Prepend Replace
+        Reverse Duplicate
+        GPU Side Execution
+        64 to 30000 Rules
+      [wordlist.c]
+        Memory Mapped IO
+        Chunk Reading
+        Stdin Support
+      [hashes.c]
+        Sort Digests
+        Binary Search
+        Bloom Filter Build
+        Duplicate Remove
+      [potfile.c]
+        Skip Cracked Hashes
+        Persistent Cache
+        Auto Load on Start
+      [monitor.c]
+        Temperature Watch
+        Fan Speed Query
+        Power Usage
+        Auto Throttle
+      [selftest.c]
+        Known Pair Verify
+        Per Module Test
+        Kernel Correctness
+
+    (HARDWARE LAYER)
+      [NVIDIA GPU]
+        CUDA Cores 16384 on 4090
+        RTX 4090 164 GHs NTLM
+        RTX 3090 78 GHs NTLM
+        CUDA and OpenCL Runtime
+      [AMD GPU]
+        Stream Processors
+        RX 7900 XTX 68 GHs
+        ROCm HIP Runtime
+      [Intel GPU]
+        Arc A770 8 GHs
+        oneAPI Runtime
+      [CPU Fallback]
+        POCL Runtime
+        Last Resort Only
+      [Multi GPU]
+        Near Linear Scaling
+        Up to 128 Devices
+        Independent Chunks
+        No GPU Communication
+
+    (KERNEL PIPELINE)
+      [Stage 1 BASE]
+        Load Base Words
+        Prepare Hash State
+        Store Intermediate
+      [Stage 2 AMPLIFIER]
+        Apply Rules amp_a0.cl
+        Apply Masks amp_a3.cl
+        Combinator amp_a1.cl
+        Multiply Keyspace
+      [Stage 3 COMPARE]
+        Hash Final Candidate
+        Bloom Filter Reject
+        Binary Search Match
+        Write Result Buffer
+
+    (ATTACK MODES)
+      [a0 Dictionary]
+        Wordlist plus Rules
+        straight.c
+      [a1 Combinator]
+        Word1 concat Word2
+        combinator.c
+      [a3 Brute Force]
+        Mask plus Markov
+        bruteforce.c
+      [a6 Hybrid WL Mask]
+        Word then Mask
+      [a7 Hybrid Mask WL]
+        Mask then Word
+      [a9 Association]
+        Targeted Per Hash
+
+    (OUTPUT LAYER)
+      [Potfile]
+        hash colon plain pairs
+        Auto loaded next run
+      [Outfile -o]
+        Custom path
+        15 Format options
+      [Screen Display]
+        Speed H per second
+        Progress Percent
+        ETA Remaining
+        Temperature
+```
+
+
+```mermaid
 sequenceDiagram
     actor User
     participant CLI as main.c / CLI
