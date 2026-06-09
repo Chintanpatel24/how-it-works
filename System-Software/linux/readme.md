@@ -171,6 +171,108 @@ mindmap
 ```
 
 ```mermaid
+flowchart TD
+    subgraph HW["Hardware Layer"]
+        CPU[CPU Cores]
+        MEM[Physical RAM]
+        DISK[Storage Devices]
+        NIC[Network Cards]
+        PERIPH[Peripherals]
+    end
+
+    subgraph BOOT_PROC["Boot Process"]
+        BIOS[BIOS or UEFI Firmware]
+        BOOTLDR[Bootloader GRUB2]
+        KERNEL_IMG[Kernel Image vmlinuz]
+        INITRD[Initial RAM Disk initramfs]
+    end
+
+    subgraph KERNEL["Kernel Space"]
+        SCI[System Call Interface]
+        SCHED[Process Scheduler CFS]
+        MM[Memory Manager]
+        VFS[Virtual File System]
+        NET_CORE[Network Stack]
+        IPC[IPC Subsystem]
+        SEC[Security Framework]
+        BLKDRV[Block Device Drivers]
+        CHRDRV[Character Device Drivers]
+        NETDRV[Network Drivers]
+        FSDRV[File System Drivers]
+    end
+
+    subgraph USPACE["User Space"]
+        INIT[Init System systemd]
+        LIBS[Shared Libraries glibc]
+        SHELL[Shell bash zsh]
+        APPS[User Applications]
+    end
+
+    CPU --> BIOS
+    MEM --> BIOS
+    DISK --> BIOS
+    NIC --> BIOS
+    PERIPH --> BIOS
+
+    BIOS --> BOOTLDR
+    BOOTLDR --> KERNEL_IMG
+    KERNEL_IMG --> INITRD
+    INITRD --> SCI
+
+    SCI --> SCHED
+    SCI --> MM
+    SCI --> VFS
+    SCI --> NET_CORE
+    SCI --> IPC
+    SCI --> SEC
+
+    SCHED --> BLKDRV
+    MM --> BLKDRV
+    VFS --> FSDRV
+    NET_CORE --> NETDRV
+    SEC --> CHRDRV
+
+    BLKDRV --> DISK
+    NETDRV --> NIC
+    CHRDRV --> PERIPH
+
+    SCI --> INIT
+    INIT --> LIBS
+    LIBS --> SHELL
+    SHELL --> APPS
+    APPS --> SCI
+
+    style HW fill:#0d1117,stroke:#888888,color:#ffffff
+    style BOOT_PROC fill:#0d1117,stroke:#4a9eff,color:#ffffff
+    style KERNEL fill:#0d1117,stroke:#ff6b6b,color:#ffffff
+    style USPACE fill:#0d1117,stroke:#00ff88,color:#ffffff
+    style SCI fill:#1a2a3a,stroke:#4a9eff,color:#ffffff
+    style SCHED fill:#1a1a2e,stroke:#7ec8e3,color:#ffffff
+    style MM fill:#1a1a2e,stroke:#7ec8e3,color:#ffffff
+    style VFS fill:#1a1a2e,stroke:#7ec8e3,color:#ffffff
+    style NET_CORE fill:#1a1a2e,stroke:#7ec8e3,color:#ffffff
+    style IPC fill:#1a1a2e,stroke:#7ec8e3,color:#ffffff
+    style SEC fill:#1a1a2e,stroke:#7ec8e3,color:#ffffff
+    style BLKDRV fill:#1a0f0f,stroke:#ff9966,color:#ffffff
+    style CHRDRV fill:#1a0f0f,stroke:#ff9966,color:#ffffff
+    style NETDRV fill:#1a0f0f,stroke:#ff9966,color:#ffffff
+    style FSDRV fill:#1a0f0f,stroke:#ff9966,color:#ffffff
+    style INIT fill:#0f1a0f,stroke:#00ff88,color:#ffffff
+    style LIBS fill:#0f1a0f,stroke:#00ff88,color:#ffffff
+    style SHELL fill:#0f1a0f,stroke:#00ff88,color:#ffffff
+    style APPS fill:#0f1a0f,stroke:#00ff88,color:#ffffff
+    style BIOS fill:#1a1a0f,stroke:#ffcc02,color:#ffffff
+    style BOOTLDR fill:#1a1a0f,stroke:#ffcc02,color:#ffffff
+    style KERNEL_IMG fill:#1a1a0f,stroke:#ffcc02,color:#ffffff
+    style INITRD fill:#1a1a0f,stroke:#ffcc02,color:#ffffff
+    style CPU fill:#0f0f0f,stroke:#888888,color:#ffffff
+    style MEM fill:#0f0f0f,stroke:#888888,color:#ffffff
+    style DISK fill:#0f0f0f,stroke:#888888,color:#ffffff
+    style NIC fill:#0f0f0f,stroke:#888888,color:#ffffff
+    style PERIPH fill:#0f0f0f,stroke:#888888,color:#ffffff
+```
+
+```mermaid
 sequenceDiagram
     participant HW as Hardware BIOS UEFI
     participant GRUB as Bootloader GRUB2
