@@ -536,3 +536,163 @@ sequenceDiagram
         VFS-->>App: Copy data to user buffer
     end
 ```
+
+```mermaid
+sequenceDiagram
+    participant User as User Action
+    participant PAM as PAM Modules
+    participant KERNEL as Kernel Security
+    participant LSM as Linux Security Module
+    participant SELINUX as SELinux or AppArmor
+    participant CAP as Capabilities
+    participant NS as Namespaces
+    participant CGROUP as Cgroups
+
+    Note over User,CGROUP: LINUX SECURITY AND ACCESS CONTROL SEQUENCE
+
+    User->>PAM: Login attempt with credentials
+    PAM->>PAM: Load PAM configuration for service
+    PAM->>PAM: Run pam_unix for password check
+    PAM->>PAM: Run pam_limits for resource limits
+    PAM->>PAM: Run pam_selinux for context
+
+    alt Authentication failed
+        PAM-->>User: Access denied
+    else Authentication passed
+        PAM-->>KERNEL: Create user session
+    end
+
+    User->>KERNEL: Execute privileged command
+    KERNEL->>KERNEL: Check traditional DAC permissions
+    Note right of KERNEL: Check UID GID and\nfile permission bits
+
+    alt DAC denied
+        KERNEL-->>User: Permission denied EACCES
+    else DAC passed
+        KERNEL->>LSM: Check LSM hooks
+        LSM->>SELINUX: Query security policy
+
+        SELINUX->>SELINUX: Check source context
+        SELINUX->>SELINUX: Check target context
+        SELINUX->>SELINUX: Check operation class
+        SELINUX->>SELINUX: Look up policy rules
+
+        alt SELinux denied
+            SELINUX-->>KERNEL: Deny with AVC log
+            KERNEL-->>User: Permission denied
+        else SELinux allowed
+            SELINUX-->>KERNEL: Allow
+            KERNEL->>CAP: Check required capabilities
+
+            CAP->>CAP: Check if process has capability
+            Note right of CAP: CAP_NET_ADMIN for networking\nCAP_SYS_ADMIN for system\nCAP_DAC_OVERRIDE for files
+
+            alt Capability missing
+                CAP-->>KERNEL: Operation not permitted EPERM
+                KERNEL-->>User: Operation not permitted
+            else Capability present
+                CAP-->>KERNEL: Capability check passed
+            end
+        end
+    end
+
+    Note over NS,CGROUP: CONTAINER ISOLATION
+
+    KERNEL->>NS: Check namespace membership
+    NS->>NS: PID namespace isolates process tree
+    NS->>NS: Network namespace isolates network stack
+    NS->>NS: Mount namespace isolates file system view
+    NS->>NS: User namespace maps UIDs
+    NS-->>KERNEL: Namespace context applied
+
+    KERNEL->>CGROUP: Enforce resource limits
+    CGROUP->>CGROUP: Check CPU quota
+    CGROUP->>CGROUP: Check memory limit
+    CGROUP->>CGROUP: Check IO bandwidth
+    CGROUP-->>KERNEL: Resource limits applied
+    KERNEL-->>User: Operation allowed within limits
+```
+
+```mermaid
+flowchart TD
+    subgraph KERNEL_INTERNAL["Kernel Internal Architecture"]
+        direction TB
+
+        SCI[System Call Interface]
+
+        subgraph PROCESS_MGMT["Process Management"]
+            SCHED_CFS[CFS Scheduler]
+            TASK[Task Struct]
+            SIGNAL[Signal Handler]
+            FORK[Fork and Exec]
+            WAIT[Wait and Exit]
+        end
+
+        subgraph MEM_MGMT["Memory Management"]
+            BUDDY[Buddy Allocator]
+            SLUB[SLUB Slab Allocator]
+            VMAREA[Virtual Memory Areas]
+            PAGETBL[Page Tables]
+            PAGEFLT[Page Fault Handler]
+            KSWAPD[kswapd Daemon]
+        end
+
+        subgraph VFS_LAYER["Virtual File System"]
+            DENTRY[Dentry Cache]
+            INODE[Inode Cache]
+            PAGECACHE[Page Cache]
+            FILEOPS[File Operations]
+        end
+
+        subgraph NET_STACK["Network Stack"]
+            SOCK[Socket Layer]
+            TCP_LAYER[TCP Implementation]
+            UDP_LAYER[UDP Implementation]
+            IP_LAYER[IP Routing]
+            NFILTER[Netfilter Hooks]
+        end
+
+        subgraph SECURITY_SUB["Security"]
+            DAC[DAC Permissions]
+            LSM_HOOK[LSM Hooks]
+            SECCOMP[Seccomp Filters]
+            CAPS[Capabilities]
+        end
+
+        subgraph DEVICE_MODEL["Device Model"]
+            SYSFS[Sysfs Interface]
+            DEVMODEL[Kobject Kset]
+            UDEV_RULES[Udev Rules]
+        end
+
+        subgraph BLOCK_LAYER["Block IO Layer"]
+            BIO_LAYER[Bio Requests]
+            IOSCHED[IO Scheduler]
+            DM[Device Mapper]
+        end
+    end
+
+    SCI --> PROCESS_MGMT
+    SCI --> MEM_MGMT
+    SCI --> VFS_LAYER
+    SCI --> NET_STACK
+    SCI --> SECURITY_SUB
+
+    VFS_LAYER --> BLOCK_LAYER
+    NET_STACK --> NFILTER
+    SECURITY_SUB --> LSM_HOOK
+    DEVICE_MODEL --> SYSFS
+
+    style KERNEL_INTERNAL fill:#0d1117,stroke:#ff6b6b,color:#fff
+    style PROCESS_MGMT fill:#0f1e2e,stroke:#4a9eff,color:#fff
+    style MEM_MGMT fill:#0f1e2e,stroke:#ff9f43,color:#fff
+    style VFS_LAYER fill:#0f1e2e,stroke:#00ff88,color:#fff
+    style NET_STACK fill:#0f1e2e,stroke:#7ec8e3,color:#fff
+    style SECURITY_SUB fill:#0f1e2e,stroke:#ff6b6b,color:#fff
+    style DEVICE_MODEL fill:#0f1e2e,stroke:#888,color:#fff
+    style BLOCK_LAYER fill:#0f1e2e,stroke:#ffcc02,color:#fff
+```
+
+```mermaid
+
+```
