@@ -476,3 +476,63 @@ sequenceDiagram
     SOCKET-->>App: Wake up blocked recv call
     App->>SOCKET: recv() returns data to application
 ```
+
+```mermaid
+sequenceDiagram
+    participant App as User Process
+    participant VFS as VFS Layer
+    participant DCACHE as Dentry Cache
+    participant ICACHE as Inode Cache
+    participant PCACHE as Page Cache
+    participant FS as Filesystem ext4
+    participant BIO as Block IO Layer
+    participant SCHED as IO Scheduler
+    participant DRIVER as Block Driver
+    participant DISK as Storage Device
+
+    Note over App,DISK: LINUX FILE READ FULL IO PATH
+
+    App->>VFS: open() system call for filename
+    VFS->>DCACHE: Look up path components in dentry cache
+    DCACHE->>DCACHE: Walk path segment by segment
+
+    alt Dentry cached
+        DCACHE-->>VFS: Return cached dentry
+    else Dentry not cached
+        DCACHE->>ICACHE: Load parent directory inode
+        ICACHE->>FS: Read directory entries from filesystem
+        FS->>BIO: Submit read IO for directory block
+        BIO->>DISK: Read from storage
+        DISK-->>BIO: Data returned
+        BIO-->>FS: Block data ready
+        FS-->>ICACHE: Inode loaded
+        ICACHE-->>DCACHE: Directory contents available
+        DCACHE-->>VFS: Dentry resolved
+    end
+
+    VFS->>VFS: Allocate file descriptor
+    VFS->>VFS: Create file object
+    VFS-->>App: Return file descriptor integer
+
+    App->>VFS: read() with file descriptor
+    VFS->>PCACHE: Check page cache for file offset
+
+    alt Data in page cache
+        PCACHE-->>VFS: Return cached pages
+        VFS-->>App: Copy data to user buffer
+    else Page cache miss
+        PCACHE->>FS: Request page fill from filesystem
+        FS->>FS: Map file offset to block number
+        FS->>BIO: Build bio request for block
+        BIO->>SCHED: Submit to IO scheduler
+        SCHED->>SCHED: Merge adjacent requests
+        SCHED->>SCHED: Sort by disk position
+        SCHED->>DRIVER: Dispatch IO request
+        DRIVER->>DISK: DMA read command
+        DISK-->>DRIVER: Interrupt on completion
+        DRIVER-->>BIO: IO complete
+        BIO-->>PCACHE: Fill page cache entry
+        PCACHE-->>VFS: Data available in cache
+        VFS-->>App: Copy data to user buffer
+    end
+```
