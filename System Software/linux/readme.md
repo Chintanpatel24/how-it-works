@@ -694,5 +694,241 @@ flowchart TD
 ```
 
 ```mermaid
+sequenceDiagram
+    participant User as User
+    participant SHELL as Shell
+    participant BASH as Bash Parser
+    participant FORK as fork syscall
+    participant EXEC as execve syscall
+    participant LOADER as Dynamic Linker ld.so
+    participant LIBC as glibc
+    participant KERNEL as Kernel
+    participant FS as Filesystem
 
+    Note over User,FS: HOW A COMMAND RUNS IN LINUX
+
+    User->>SHELL: Type command ls -la /home
+    SHELL->>BASH: Tokenize input
+    BASH->>BASH: Parse tokens into AST
+    BASH->>BASH: Identify command and arguments
+    BASH->>BASH: Check for alias or builtin
+    BASH->>BASH: Resolve PATH for ls binary
+
+    BASH->>FORK: Call fork to create child process
+    FORK->>KERNEL: clone syscall with flags
+    KERNEL->>KERNEL: Allocate new task struct
+    KERNEL->>KERNEL: Copy parent page tables copy on write
+    KERNEL->>KERNEL: Assign new PID
+    KERNEL-->>BASH: Return PID to parent
+    KERNEL-->>FORK: Return 0 to child process
+
+    FORK->>EXEC: Child calls execve with ls path
+    EXEC->>KERNEL: execve syscall
+    KERNEL->>FS: Open binary file /usr/bin/ls
+    FS-->>KERNEL: File descriptor to binary
+    KERNEL->>KERNEL: Read ELF header
+    KERNEL->>KERNEL: Validate ELF magic and architecture
+    KERNEL->>KERNEL: Map program segments into memory
+    KERNEL->>KERNEL: Set up stack with argv and envp
+    KERNEL->>LOADER: Transfer control to ld.so interpreter
+
+    LOADER->>LOADER: Read dynamic section of binary
+    LOADER->>LOADER: Find required shared libraries
+    LOADER->>FS: Open libz.so libc.so etc
+    FS-->>LOADER: Library file descriptors
+    LOADER->>LOADER: Map libraries into address space
+    LOADER->>LOADER: Resolve symbol relocations
+    LOADER->>LOADER: Run library init functions
+    LOADER->>LIBC: Call glibc init
+    LIBC->>LIBC: Set up stdio buffers
+    LIBC->>LIBC: Initialize locale and timezone
+    LOADER->>EXEC: Jump to main entry point
+
+    EXEC->>KERNEL: opendir getdents stat syscalls
+    KERNEL->>FS: Look up directory entries
+    FS-->>KERNEL: Directory data
+    KERNEL-->>EXEC: Return file listing
+    EXEC->>EXEC: Format output with permissions size date
+    EXEC->>KERNEL: write syscall to stdout
+    KERNEL-->>SHELL: Output displayed to terminal
+    SHELL->>BASH: Wait for child to exit
+    BASH->>BASH: waitpid collect exit status
+    BASH-->>User: Prompt returns
+```
+
+```mermaid
+mindmap
+  root((Linux Source Tree))
+    (arch/)
+      [x86]
+        boot
+        kernel
+        mm
+        include
+      [arm arm64]
+        boot dts
+        kernel
+        mm
+      [risc-v]
+      [mips]
+      [powerpc]
+
+    (kernel/)
+      [sched]
+        core.c main scheduler
+        fair.c CFS implementation
+        rt.c real time scheduler
+        deadline.c EDF scheduler
+      [mm]
+        memory.c virtual memory
+        page_alloc.c buddy allocator
+        slub.c slab allocator
+        swap.c swap management
+        mmap.c memory maps
+      [fs]
+        vfs main VFS layer
+        namei.c path resolution
+        dcache.c dentry cache
+        inode.c inode operations
+        read_write.c IO operations
+      [net]
+        socket.c socket API
+        core networking core
+        ipv4 TCP IP implementation
+        netfilter packet filtering
+      [ipc]
+        shm.c shared memory
+        msg.c message queues
+        sem.c semaphores
+        mqueue.c POSIX queues
+      [security]
+        security.c LSM framework
+        selinux SELinux module
+        apparmor AppArmor module
+        commoncap capabilities
+
+    (drivers/)
+      [net]
+        ethernet drivers
+        wireless drivers
+        virtual drivers
+      [block]
+        NVMe driver
+        SCSI layer
+        RAID md driver
+      [char]
+        tty layer
+        random entropy
+        urandom interface
+      [usb]
+        core USB core
+        host controllers
+        device classes
+      [gpu]
+        DRM subsystem
+        i915 Intel
+        amdgpu AMD
+        nouveau Nvidia
+
+    (fs/)
+      [ext4]
+        super.c superblock
+        inode.c inodes
+        namei.c directories
+        extents.c extent tree
+      [xfs]
+      [btrfs]
+      [proc]
+        process info
+        system info
+      [sysfs]
+        kernel objects
+        device attributes
+
+    (include/)
+      [linux]
+        types.h basic types
+        sched.h task struct
+        mm_types.h memory types
+        fs.h file types
+        net.h network types
+      [asm]
+        Architecture headers
+
+    (init/)
+      [main.c]
+        start_kernel
+        setup arch
+        rest_init
+```
+
+```mermaid
+flowchart TD
+    subgraph DISTRO["Linux Distribution Architecture"]
+        direction TB
+
+        subgraph APPS["Applications"]
+            WEB[Web Browser]
+            TERM[Terminal]
+            EDITOR[Text Editor]
+            SRV[Server Software]
+        end
+
+        subgraph DESKTOP["Desktop Layer optional"]
+            DE[Desktop Environment]
+            WM[Window Manager]
+            DISPLAY[Display Server Wayland X11]
+        end
+
+        subgraph SYSTEM["System Services"]
+            SYSD[systemd]
+            JOURNAL[journald]
+            NETWORKM[NetworkManager]
+            DBUS[D-Bus IPC]
+            UDEVD[udevd]
+        end
+
+        subgraph CLIBS["C Libraries and Runtime"]
+            GLIBC[glibc]
+            LIBPTHREAD[libpthread]
+            LIBM[libm]
+            LDSO[ld.so dynamic linker]
+        end
+
+        subgraph PKGMGR["Package Management"]
+            APT[apt dpkg]
+            RPM[rpm dnf]
+            PACMAN[pacman]
+        end
+
+        subgraph KSPACE["Kernel Space"]
+            SYSCALL[System Call Interface]
+            SUBSYS[Kernel Subsystems]
+            KMOD[Kernel Modules]
+        end
+
+        subgraph HWL["Hardware"]
+            CPUH[CPU]
+            RAMH[RAM]
+            DISKH[Disk]
+            NÍCH[Network Card]
+        end
+    end
+
+    APPS --> DESKTOP
+    DESKTOP --> SYSTEM
+    SYSTEM --> CLIBS
+    PKGMGR --> CLIBS
+    CLIBS --> KSPACE
+    KSPACE --> HWL
+    KMOD --> HWL
+
+    style DISTRO fill:#0d1117,stroke:#4a9eff,color:#fff
+    style APPS fill:#0f2e0f,stroke:#00ff88,color:#fff
+    style DESKTOP fill:#2e2a0f,stroke:#ffcc00,color:#fff
+    style SYSTEM fill:#0f1e2e,stroke:#4a9eff,color:#fff
+    style CLIBS fill:#1a0f1a,stroke:#cc88ff,color:#fff
+    style PKGMGR fill:#0f1e2e,stroke:#7ec8e3,color:#fff
+    style KSPACE fill:#2e0f0f,stroke:#ff6b6b,color:#fff
+    style HWL fill:#1a1a1a,stroke:#888,color:#fff
 ```
